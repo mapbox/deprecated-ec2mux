@@ -1,0 +1,10 @@
+{
+    "name": "ec2mux",
+    "version": "0.0.1",
+    "description": "Light wrapper around swarm to allow connecting to multiple EC2s in tmux.",
+    "private": true,
+    "dependencies": { "swarm": "https://github.com/mapbox/swarm/tarball/v0.3.0" },
+    "main": "./ec2mux",
+    "bin": { "ec2mux": "./ec2mux" },
+    "engines": { "node": ">= 0.6.x" }
+}

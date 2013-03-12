@@ -1,0 +1,53 @@
+#!/bin/bash
+if [ ! -f $HOME/.s3cfg ]; then
+    echo ".s3cfg not found"
+    exit 1
+fi
+
+AWSK=$(grep access_key ~/.s3cfg | grep -oE "[^ =]+$")
+AWSS=$(grep secret_key ~/.s3cfg | grep -oE "[^ =]+$")
+
+### Parse arguments
+while getopts ":i:" opt; do
+  case $opt in
+    i ) IDENT="-i $OPTARG" ;;
+    : )
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1 ;;
+  esac
+  shift $((OPTIND-1))
+done
+
+SWARM=$(echo $1 | grep -oE "[^@]+$")
+TMUX="$SWARM"
+if [ -z $SWARM ]; then
+    echo "Usage:"
+    echo "  ec2mux [-i keyfile] [user@]<swarm>"
+    echo "Example:"
+    echo "  ec2mux demo                        connect to ec2s tagged Swarm:demo"
+    echo "  ec2mux custom@demo                 connect as user custom"
+    echo "  ec2mux -i ~/.ssh/mykey.pem demo    use mykey.pem"
+    exit;
+fi
+
+### Allow user to be specified with <user>@<swarm>
+if echo "$1" | grep "@" > /dev/null; then
+  USERNAME="$(echo "$1" | grep "@" | grep -oE "^[^@]+")@"
+else
+  USERNAME="ubuntu@"
+fi
+
+tmux new-session -d -s $TMUX
+
+SWARM_HOSTNAMES=$(./node_modules/swarm/bin/swarm --awsKey=$AWSK --awsSecret=$AWSS metadata --filter.Swarm $SWARM --attribute dnsName)
+
+for HOST in $SWARM_HOSTNAMES
+do
+    echo $HOST;
+    tmux split-window -t $TMUX "ssh $IDENT -CA ${USERNAME}${HOST}"
+    tmux select-layout tiled
+done
+
+tmux kill-pane -t $TMUX:0.0
+tmux select-layout tiled
+tmux -2 attach-session -t $TMUX

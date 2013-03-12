@@ -7,6 +7,16 @@ fi
 AWSK=$(grep access_key ~/.s3cfg | grep -oE "[^ =]+$")
 AWSS=$(grep secret_key ~/.s3cfg | grep -oE "[^ =]+$")
 
+if [ -h $0 ]; then
+  SWARMPATH="$(dirname $(dirname $0)/$(readlink $0))/node_modules/swarm/bin/swarm"
+else
+  SWARMPATH="$(dirname $(dirname $0))/node_modules/swarm/bin/swarm"
+fi
+if [ ! -f $SWARMPATH ]; then
+  echo "'swarm' command not found."
+  exit 1
+fi
+
 ### Parse arguments
 while getopts ":i:" opt; do
   case $opt in
@@ -37,10 +47,14 @@ else
   USERNAME="ubuntu@"
 fi
 
+### Query for swarm hostnames to connect to.
+SWARM_HOSTNAMES=$($SWARMPATH --awsKey=$AWSK --awsSecret=$AWSS metadata --filter.Swarm $SWARM --attribute dnsName)
+if [ -z $SWARM_HOSTNAMES ]; then
+  echo "No EC2s with tag Swarm:$SWARM found."
+  exit 1
+fi
+
 tmux new-session -d -s $TMUX
-
-SWARM_HOSTNAMES=$(./node_modules/swarm/bin/swarm --awsKey=$AWSK --awsSecret=$AWSS metadata --filter.Swarm $SWARM --attribute dnsName)
-
 for HOST in $SWARM_HOSTNAMES
 do
     echo $HOST;
